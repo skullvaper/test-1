@@ -500,6 +500,71 @@ export function isPastSoftCap(karbovanets: number): boolean {
   return karbovanets > ECONOMY_BALANCE.softCapThresholds.karbovanets;
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════
+// HERO EXPERIENCE TABLE (Phase 9)
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Hero XP Requirements per Level
+ * Format: XP needed to reach that level from previous
+ * Level 1 = 0 (starting level)
+ * Level 2 = 100 XP
+ * Level 3 = 200 XP (total 300)
+ * etc.
+ */
+export const HERO_XP_TABLE: Record<number, number> = {
+  1: 0,      // Starting level
+  2: 100,    // 100 XP to reach level 2
+  3: 200,    // 300 XP total to reach level 3
+  4: 350,    // 650 XP total
+  5: 550,    // 1200 XP total
+  6: 800,    // 2000 XP total
+  7: 1100,   // 3100 XP total
+  8: 1500,   // 4600 XP total
+  9: 2000,   // 6600 XP total
+  10: 2700,  // 9300 XP total
+  11: 3500,  // 12800 XP total
+  12: 4500,  // 17300 XP total
+  13: 5500,  // 22800 XP total
+  14: 7000,  // 29800 XP total
+  15: 9000,  // 38800 XP total (max level)
+};
+
+/** Max hero level */
+export const MAX_HERO_LEVEL = 15;
+
+/** Get XP needed for next level */
+export function getXPForNextLevel(currentLevel: number): number {
+  const nextLevel = currentLevel + 1;
+  if (nextLevel > MAX_HERO_LEVEL) return Infinity;
+  return HERO_XP_TABLE[nextLevel] || Infinity;
+}
+
+/** Get total XP needed to reach a level */
+export function getTotalXPForLevel(targetLevel: number): number {
+  let total = 0;
+  for (let i = 2; i <= targetLevel; i++) {
+    total += HERO_XP_TABLE[i] || 0;
+  }
+  return total;
+}
+
+/** Calculate level from total XP */
+export function getLevelFromXP(totalXp: number): { level: number; xpInLevel: number } {
+  let xpRemaining = totalXp;
+  
+  for (let lvl = 2; lvl <= MAX_HERO_LEVEL; lvl++) {
+    const needed = HERO_XP_TABLE[lvl];
+    if (xpRemaining < needed) {
+      return { level: lvl - 1, xpInLevel: xpRemaining };
+    }
+    xpRemaining -= needed;
+  }
+  
+  return { level: MAX_HERO_LEVEL, xpInLevel: xpRemaining };
+}
+
 /**
  * Calculate effective earnings (post soft cap)
  */

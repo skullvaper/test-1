@@ -37,6 +37,8 @@ import {
   EXPEDITION_REWARD_MULTIPLIER,
   BUILDING_COST_MULTIPLIER,
   ARTIFACT_PRESTIGE_MULTIPLIER,
+  getLevelFromXP,
+  MAX_HERO_LEVEL,
 } from './balanceConfig';
 import { academySync } from './expeditionSync';
 
@@ -161,6 +163,7 @@ interface GameState {
 
   // economy helpers
   addKarbovanets: (amount: number) => void;
+  addHeroXP: (heroId: string, amount: number) => void;
   spendKarbovanets: (amount: number) => boolean;
   pushToast: (message: string, color?: string) => void;
   dismissToast: (id: number) => void;
@@ -211,6 +214,39 @@ export const useExpeditionStore = create<GameState>()(
 
       addKarbovanets: (amount) =>
         set((s) => ({ karbovanets: s.karbovanets + amount })),
+
+      addHeroXP: (heroId, amount) => {
+        if (amount <= 0) return;
+
+        set((state) => {
+          const heroIdx = state.heroes.findIndex(h => h.id === heroId);
+          if (heroIdx === -1) return state;
+
+          const hero = state.heroes[heroIdx];
+          const totalXp = hero.experience + amount;
+          const { level: newLevel, xpInLevel } = getLevelFromXP(totalXp);
+
+          // Check if hero leveled up
+          const leveledUp = newLevel > hero.level;
+
+          // Update hero
+          const updatedHero = {
+            ...hero,
+            level: Math.min(newLevel, MAX_HERO_LEVEL),
+            experience: xpInLevel
+          };
+
+          const newHeroes = [...state.heroes];
+          newHeroes[heroIdx] = updatedHero;
+
+          // Show toast if leveled up
+          if (leveledUp) {
+            get().pushToast(`✨ ${hero.name}: Рівень ${newLevel}!`, '#FFC72C');
+          }
+
+          return { heroes: newHeroes };
+        });
+      },
       spendKarbovanets: (amount) => {
         if (get().karbovanets >= amount) {
           set((s) => ({ karbovanets: s.karbovanets - amount }));
@@ -324,7 +360,7 @@ export const useExpeditionStore = create<GameState>()(
                 get().pushToast(`🎓 Рівень Академії: ${newLevel}!`, '#FFC72C');
               }
               
-              set(st => ({
+              set(() => ({
                 academyXp: newXp,
                 academyLevel: newLevel,
                 academyXpToNextLevel: xpToNext,
@@ -860,18 +896,16 @@ export const useExpeditionStore = create<GameState>()(
         const failureReward = Math.round(finalReward * 0.2);
 
         set((st) => {
-          // free heroes + grant xp
+          // free heroes + grant xp using HERO_XP_TABLE
           const heroes = st.heroes.map((h) => {
             if (!exp.heroes.includes(h.id)) return h;
             const gainedXp = success ? 200 + exp.successChance : 80;
-            let level = h.level;
-            let experience = h.experience + gainedXp;
-            const need = (level + 1) * 200;
-            if (experience >= need) {
-              level += 1;
-              experience -= need;
-            }
-            return { ...h, assigned: false, assignedTo: undefined, level, experience };
+            
+            // Calculate total XP and new level
+            const totalXp = h.experience + gainedXp;
+            const { level: newLevel, xpInLevel } = getLevelFromXP(totalXp);
+            
+            return { ...h, assigned: false, assignedTo: undefined, level: newLevel, experience: xpInLevel };
           });
 
           // unlock next region on success
