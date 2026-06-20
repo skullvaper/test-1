@@ -38,6 +38,7 @@ import {
   BUILDING_COST_MULTIPLIER,
   ARTIFACT_PRESTIGE_MULTIPLIER,
 } from './balanceConfig';
+import { academySync } from './expeditionSync';
 
 const rarityRank: Record<Rarity, number> = {
   common: 0,
@@ -97,6 +98,8 @@ export interface Toast {
 
 interface GameState {
   academyLevel: number;
+  academyXp: number;
+  academyXpToNextLevel: number;
   reputation: number;
   karbovanets: number;
   museumVisitors: number;
@@ -171,6 +174,8 @@ export const useExpeditionStore = create<GameState>()(
   persist(
     (set, get) => ({
       academyLevel: 3,
+      academyXp: 0,
+      academyXpToNextLevel: 1000,
       reputation: 1250,
       karbovanets: 8500,
       museumVisitors: 342,
@@ -277,6 +282,21 @@ export const useExpeditionStore = create<GameState>()(
       },
       
       completeQuest: (questId) => {
+        // Anti-spam: Debounce
+        const completeKey = `quest_completed_${questId}`;
+        if (localStorage.getItem(completeKey + '_last') && 
+            Date.now() - parseInt(localStorage.getItem(completeKey + '_last')!) < 3000) {
+          get().pushToast('Квест обробляється...', '#FFC72C');
+          return;
+        }
+
+        // Double reward protection
+        const currentState = get();
+        if (currentState.storyState.completedQuests.includes(questId)) {
+          get().pushToast('Квест вже виконано!', '#FF2A5F');
+          return;
+        }
+
         // Find quest data to get rewards
         const quest = storyQuests.find(q => q.id === questId);
         if (!quest) return;
@@ -289,9 +309,28 @@ export const useExpeditionStore = create<GameState>()(
               get().addKarbovanets(amount);
               break;
             case 'xp':
-            case 'academy_xp':
-              // Grant XP (not implemented yet)
+            case 'academy_xp': {
+              // Grant Academy XP
+              const currentState = get();
+              let newXp = currentState.academyXp + amount;
+              let newLevel = currentState.academyLevel;
+              let xpToNext = currentState.academyXpToNextLevel;
+              
+              // Level up if enough XP
+              while (newXp >= xpToNext) {
+                newXp -= xpToNext;
+                newLevel += 1;
+                xpToNext = Math.round(xpToNext * 1.5);
+                get().pushToast(`🎓 Рівень Академії: ${newLevel}!`, '#FFC72C');
+              }
+              
+              set(st => ({
+                academyXp: newXp,
+                academyLevel: newLevel,
+                academyXpToNextLevel: xpToNext,
+              }));
               break;
+            }
             case 'reputation':
               set(st => ({ reputation: st.reputation + amount }));
               break;
@@ -318,11 +357,21 @@ export const useExpeditionStore = create<GameState>()(
           };
         });
 
+        // Anti-spam: Mark completion
+        localStorage.setItem(completeKey + '_last', Date.now().toString());
+
         // Show completion toast
         get().pushToast(`Квест "${quest.titleKey}" виконано!`, '#10B981');
       },
 
       updateQuestObjective: (objectiveKey, increment) => {
+        // Anti-spam: Debounce
+        const objDebounceKey = `quest_obj_${objectiveKey}_last`;
+        if (localStorage.getItem(objDebounceKey) && 
+            Date.now() - parseInt(localStorage.getItem(objDebounceKey)!) < 500) {
+          return;
+        }
+
         set((state) => {
           // Update objective progress in all active quests
           const updatedActiveQuests = state.storyState.activeQuests.map(qp => ({
@@ -341,6 +390,9 @@ export const useExpeditionStore = create<GameState>()(
             },
           };
         });
+
+        // Anti-spam: Mark update
+        localStorage.setItem(objDebounceKey, Date.now().toString());
       },
 
       isQuestComplete: (questId) => {
@@ -792,6 +844,13 @@ export const useExpeditionStore = create<GameState>()(
         const exp = s.expeditions.find((e) => e.id === expeditionId);
         if (!exp || exp.collected || Date.now() < exp.endsAt) return;
 
+        // Anti-cheat: Prevent double collection
+        const collectionKey = `expedition_collected_${expeditionId}`;
+        if (localStorage.getItem(collectionKey)) {
+          s.pushToast('Експедицію вже зібрано!', '#FF2A5F');
+          return;
+        }
+
         const success = Math.random() * 100 <= exp.successChance;
         const updates: Partial<GameState> = {};
 
@@ -854,6 +913,13 @@ export const useExpeditionStore = create<GameState>()(
             ...updates,
           };
         });
+
+        // Anti-cheat: Mark collection
+        localStorage.setItem(collectionKey, '1');
+
+        // Server validation
+        academySync.completeExpeditionServerValidated(expeditionId, exp.heroes[0] || '')
+          .catch(() => {});
 
         if (success) {
           s.pushToast(
@@ -1039,6 +1105,8 @@ export const useExpeditionStore = create<GameState>()(
       version: 3,
       partialize: (s) => ({
         academyLevel: s.academyLevel,
+        academyXp: s.academyXp,
+        academyXpToNextLevel: s.academyXpToNextLevel,
         reputation: s.reputation,
         karbovanets: s.karbovanets,
         museumVisitors: s.museumVisitors,
