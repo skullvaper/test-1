@@ -113,6 +113,9 @@ interface GameState {
   expeditions: Expedition[];
   npcs: Npc[];
 
+  // Hero Fragments
+  heroFragments: Record<string, number>;  // heroId -> fragment count
+
   // Building state
   buildingLevels: Record<string, number>;
   buildingUpgradeEndTimes: Record<string, number>;
@@ -160,6 +163,11 @@ interface GameState {
   updateQuestObjective: (objectiveKey: string, increment: number) => void;
   isQuestComplete: (questId: string) => boolean;
   claimNpcReward: (npcId: string, rewardKey: string) => void;
+  
+  // Hero fragments
+  addHeroFragment: (heroId: string, amount: number) => void;
+  getHeroFragmentCount: (heroId: string) => number;
+  unlockHeroWithFragments: (heroId: string) => boolean;
 
   // economy helpers
   addKarbovanets: (amount: number) => void;
@@ -189,6 +197,7 @@ export const useExpeditionStore = create<GameState>()(
       regions: initialRegions,
       expeditions: [],
       npcs: initialNpcs,
+      heroFragments: {},
 
       // Building state
       buildingLevels: buildings.reduce((acc, b) => ({ ...acc, [b.id]: b.level }), {}),
@@ -373,9 +382,13 @@ export const useExpeditionStore = create<GameState>()(
             case 'artifact':
               // Grant artifact by ID
               break;
-            case 'hero_fragment':
+            case 'hero_fragment': {
               // Grant hero fragment
+              // reward.itemId contains hero ID (e.g., 'hero-cossack-scout')
+              const heroId = reward.itemId || questId;
+              get().addHeroFragment(heroId, amount);
               break;
+            }
           }
         });
 
@@ -476,6 +489,61 @@ export const useExpeditionStore = create<GameState>()(
           // Region unlock - unlock in game
           state.pushToast(`Новий регіон ${rewardKey.replace('region-', '')} відкрито!`, '#FF2A5F');
         }
+      },
+
+      // Hero Fragment functions
+      addHeroFragment: (heroId, amount) => {
+        if (amount <= 0) return;
+        set((state) => ({
+          heroFragments: {
+            ...state.heroFragments,
+            [heroId]: (state.heroFragments[heroId] || 0) + amount,
+          },
+        }));
+        
+        const count = (get().heroFragments[heroId] || 0) + amount;
+        get().pushToast(`Отримано ${amount} фрагмент героя! (${count})`, '#FFC72C');
+      },
+
+      getHeroFragmentCount: (heroId) => {
+        return get().heroFragments[heroId] || 0;
+      },
+
+      unlockHeroWithFragments: (heroId) => {
+        const state = get();
+        const fragments = state.heroFragments[heroId] || 0;
+        const hero = state.heroes.find(h => h.id === heroId);
+        
+        if (!hero) {
+          get().pushToast('Герой не знайдено!', '#FF2A5F');
+          return false;
+        }
+        
+        if (hero.unlocked) {
+          get().pushToast('Герой вже розблоковано!', '#FF2A5F');
+          return false;
+        }
+        
+        // Default cost: 50 fragments per hero
+        const COST = 50;
+        
+        if (fragments < COST) {
+          get().pushToast(`Потрібно ${COST} фрагментів (є ${fragments})`, '#FF2A5F');
+          return false;
+        }
+        
+        set((st) => ({
+          heroFragments: {
+            ...st.heroFragments,
+            [heroId]: st.heroFragments[heroId] - COST,
+          },
+          heroes: st.heroes.map(h => 
+            h.id === heroId ? { ...h, unlocked: true } : h
+          ),
+        }));
+        
+        get().pushToast(`✨ Герой ${hero.name} розблоковано!`, '#10B981');
+        return true;
       },
 
       // Museum actions

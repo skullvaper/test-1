@@ -4,7 +4,8 @@ import { Sword, BookOpen, Compass, MessageCircle, Star, Crown, Award, Sparkles, 
 import { Card, Badge, Progress, ScrollArea } from '../ui';
 import { useState } from 'react';
 import type { Rarity, HeroRank, HeroSpecialization, Hero } from '../data';
-import { HERO_RANK_THRESHOLDS, checkHeroUnlocked, getHeroUnlockProgress } from '../data';
+import { checkHeroUnlocked, getHeroUnlockProgress } from '../data';
+import { getXPForNextLevel, MAX_HERO_LEVEL } from '../balanceConfig';
 import { useTranslation } from '../../i18n';
 
 const rarityConfig: Record<Rarity, { color: string; icon: typeof Star; bg: string; labelKey: string }> = {
@@ -37,14 +38,24 @@ const heroStats = [
 ];
 
 function getXpForNextLevel(level: number): number {
-  return Math.floor(100 * Math.pow(1.5, level));
+  if (level >= MAX_HERO_LEVEL) return Infinity;
+  return getXPForNextLevel(level);
 }
 
-function getRank(experience: number): HeroRank {
-  if (experience >= HERO_RANK_THRESHOLDS.legend) return 'legend';
-  if (experience >= HERO_RANK_THRESHOLDS.master) return 'master';
-  if (experience >= HERO_RANK_THRESHOLDS.expert) return 'expert';
-  if (experience >= HERO_RANK_THRESHOLDS.adept) return 'adept';
+// Hero rank thresholds based on LEVEL (not cumulative XP)
+const HERO_RANK_LEVEL_THRESHOLDS: Record<HeroRank, number> = {
+  novice: 0,   // Level 1-2
+  adept: 3,    // Level 3+
+  expert: 6,   // Level 6+
+  master: 10,  // Level 10+
+  legend: 15,  // Level 15 (max)
+};
+
+function getRank(level: number): HeroRank {
+  if (level >= HERO_RANK_LEVEL_THRESHOLDS.legend) return 'legend';
+  if (level >= HERO_RANK_LEVEL_THRESHOLDS.master) return 'master';
+  if (level >= HERO_RANK_LEVEL_THRESHOLDS.expert) return 'expert';
+  if (level >= HERO_RANK_LEVEL_THRESHOLDS.adept) return 'adept';
   return 'novice';
 }
 
@@ -71,7 +82,7 @@ export function Heroes() {
     return <div className="p-4 text-muted-foreground">{t('heroes.no_available')}</div>;
   }
 
-  const heroRank = selectedHero ? getRank(selectedHero.experience) : 'novice';
+  const heroRank = selectedHero ? getRank(selectedHero.level) : 'novice';
   const xpForNext = selectedHero ? getXpForNextLevel(selectedHero.level) : 100;
   const xpProgress = selectedHero ? Math.min(100, (selectedHero.experience / xpForNext) * 100) : 0;
 
@@ -103,9 +114,9 @@ export function Heroes() {
                       <RarityIcon className="w-7 h-7" style={{ color: rarityConfig[hero.rarity].color }} />
                       <div 
                         className="absolute -bottom-1 -right-1 text-[8px] px-1 rounded" 
-                        style={{ backgroundColor: rankColors[getRank(hero.experience)], color: '#0D1117' }}
+                        style={{ backgroundColor: rankColors[getRank(hero.level)], color: '#0D1117' }}
                       >
-                        {getRank(hero.experience).charAt(0).toUpperCase()}
+                        {getRank(hero.level).charAt(0).toUpperCase()}
                       </div>
                     </div>
                     <div className="text-[10px] line-clamp-2 mb-1" style={{ fontFamily: "'Exo 2', sans-serif" }}>{hero.name}</div>
