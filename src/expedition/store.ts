@@ -115,6 +115,7 @@ interface GameState {
 
   // Hero Fragments
   heroFragments: Record<string, number>;  // heroId -> fragment count
+  artifactFragments: Record<Rarity, number>;  // common/rare/epic/legendary counts
 
   // Building state
   buildingLevels: Record<string, number>;
@@ -169,6 +170,10 @@ interface GameState {
   getHeroFragmentCount: (heroId: string) => number;
   unlockHeroWithFragments: (heroId: string) => boolean;
 
+  // Artifact fragments
+  addArtifactFragment: (rarity: Rarity, amount: number) => void;
+  getArtifactFragmentCount: (rarity: Rarity) => number;
+
   // economy helpers
   addKarbovanets: (amount: number) => void;
   addHeroXP: (heroId: string, amount: number) => void;
@@ -198,6 +203,7 @@ export const useExpeditionStore = create<GameState>()(
       expeditions: [],
       npcs: initialNpcs,
       heroFragments: {},
+      artifactFragments: { common: 0, rare: 0, epic: 0, legendary: 0 },
 
       // Building state
       buildingLevels: buildings.reduce((acc, b) => ({ ...acc, [b.id]: b.level }), {}),
@@ -389,6 +395,21 @@ export const useExpeditionStore = create<GameState>()(
               get().addHeroFragment(heroId, amount);
               break;
             }
+            case 'common_fragment':
+            case 'rare_fragment':
+            case 'epic_fragment':
+            case 'legendary_fragment': {
+              // Map reward type to rarity
+              const rarityMap: Record<string, 'common' | 'rare' | 'epic' | 'legendary'> = {
+                'common_fragment': 'common',
+                'rare_fragment': 'rare',
+                'epic_fragment': 'epic',
+                'legendary_fragment': 'legendary',
+              };
+              const rarity = rarityMap[reward.type] || 'common';
+              get().addArtifactFragment(rarity, amount);
+              break;
+            }
           }
         });
 
@@ -544,6 +565,23 @@ export const useExpeditionStore = create<GameState>()(
         
         get().pushToast(`✨ Герой ${hero.name} розблоковано!`, '#10B981');
         return true;
+      },
+
+      // Artifact Fragment functions
+      addArtifactFragment: (rarity, amount) => {
+        if (amount <= 0) return;
+        set((state) => ({
+          artifactFragments: {
+            ...state.artifactFragments,
+            [rarity]: (state.artifactFragments[rarity] || 0) + amount,
+          },
+        }));
+        const count = (get().artifactFragments[rarity] || 0) + amount;
+        get().pushToast(`Отримано ${amount} ${rarity} фрагмент артефакту! (${count})`, '#FFC72C');
+      },
+
+      getArtifactFragmentCount: (rarity) => {
+        return get().artifactFragments[rarity] || 0;
       },
 
       // Museum actions

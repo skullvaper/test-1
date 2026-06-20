@@ -23,7 +23,8 @@ export type QuestStatus = 'available' | 'in_progress' | 'completed' | 'rewarded'
 
 // Quest Reward
 export interface QuestReward {
-  type: 'karbovanets' | 'xp' | 'reputation' | 'hero_fragment' | 'artifact' | 'academy_xp';
+  type: 'karbovanets' | 'xp' | 'reputation' | 'hero_fragment' | 'artifact' | 'academy_xp' 
+    | 'common_fragment' | 'rare_fragment' | 'epic_fragment' | 'legendary_fragment';
   amount: number;
   itemId?: string;
 }
