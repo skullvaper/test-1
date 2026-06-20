@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key';
+const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_KEY || '';
 
 let supabaseInstance: SupabaseClient | null = null;
 
@@ -19,6 +20,23 @@ export function getSupabase(): SupabaseClient | null {
     return supabaseInstance;
   } catch (error) {
     console.error('Failed to initialize Supabase:', error);
+    return null;
+  }
+}
+
+// Get admin client with service role (server-side only!)
+export function getSupabaseAdmin(): SupabaseClient | null {
+  if (!supabaseServiceKey || !supabaseUrl) return null;
+  
+  try {
+    return createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
+  } catch (error) {
+    console.error('Failed to initialize Supabase Admin:', error);
     return null;
   }
 }
