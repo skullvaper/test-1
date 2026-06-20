@@ -617,3 +617,107 @@ export const initialMuseumState: MuseumState = {
   eventParticipation: [],
   lastDailyReward: 0,
 };
+
+// ═══════════════════════════════════════════════════════════════════════
+// ACHIEVEMENT LOGIC
+// ═══════════════════════════════════════════════════════════════════════
+
+export interface UnlockedAchievement {
+  achievementId: string;
+  unlockedAt: number;
+  rewardClaimed: boolean;
+}
+
+/**
+ * Check and unlock achievements based on current museum state
+ * Returns list of newly unlocked achievements
+ */
+export function checkAndUnlockAchievements(
+  currentState: MuseumState,
+  museumArtifacts: { id: string }[]
+): UnlockedAchievement[] {
+  const newlyUnlocked: UnlockedAchievement[] = [];
+  const alreadyUnlocked = currentState.achievements || [];
+
+  for (const achievement of MUSEUM_ACHIEVEMENTS) {
+    // Skip if already unlocked
+    if (alreadyUnlocked.includes(achievement.id)) continue;
+
+    // Check requirement
+    const current = getAchievementProgress(achievement, currentState, museumArtifacts);
+    const required = achievement.requirement.value;
+
+    let isUnlocked = false;
+    switch (achievement.requirement.comparison) {
+      case '>=':
+        isUnlocked = current >= required;
+        break;
+      case '==':
+        isUnlocked = current === required;
+        break;
+      case '>':
+        isUnlocked = current > required;
+        break;
+      default:
+        isUnlocked = current >= required;
+    }
+
+    if (isUnlocked) {
+      newlyUnlocked.push({
+        achievementId: achievement.id,
+        unlockedAt: Date.now(),
+        rewardClaimed: false,
+      });
+    }
+  }
+
+  return newlyUnlocked;
+}
+
+/**
+ * Get current progress for an achievement
+ */
+function getAchievementProgress(
+  achievement: MuseumAchievement,
+  museumState: MuseumState,
+  museumArtifacts: { id: string }[]
+): number {
+  switch (achievement.requirement.type) {
+    case 'visitors':
+      return museumState.totalVisitorsAllTime || 0;
+    case 'artifacts':
+      return museumArtifacts.length;
+    case 'collections':
+      return museumState.completedCollections?.length || 0;
+    case 'reputation':
+      return museumState.reputation;
+    case 'exhibitions':
+      return museumState.exhibitions?.filter((e) => e.artifactId).length || 0;
+    case 'events':
+      return museumState.eventParticipation?.length || 0;
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Calculate reward for an achievement
+ */
+export function getAchievementReward(achievementId: string): { type: string; amount: number } | null {
+  const achievement = MUSEUM_ACHIEVEMENTS.find((a) => a.id === achievementId);
+  return achievement?.reward || null;
+}
+
+/**
+ * Check if player can claim achievement reward (unlocked but not claimed)
+ */
+export function canClaimAchievementReward(
+  achievementId: string,
+  museumState: MuseumState,
+  claimedAchievements: string[]
+): boolean {
+  // Must be unlocked
+  if (!museumState.achievements?.includes(achievementId)) return false;
+  // Must not be claimed yet
+  return !claimedAchievements.includes(achievementId);
+}

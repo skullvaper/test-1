@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Building2, Map, Users, FlaskConical, Landmark, HardHat, Gift } from 'lucide-react';
+import { Building2, Map, Users, FlaskConical, Landmark, HardHat, Gift, Wallet } from 'lucide-react';
 import { useExpeditionStore } from './store';
 import { useAcademySync } from './expeditionSync';
 import { Academy } from './screens/Academy';
@@ -20,6 +20,7 @@ const navigation: { id: ScreenId; name: string; icon: typeof Map }[] = [
   { id: 'heroes', name: 'Герої', icon: Users },
   { id: 'laboratory', name: 'Лаб', icon: FlaskConical },
   { id: 'museum', name: 'Музей', icon: Landmark },
+  { id: 'treasury', name: 'Скарб', icon: Wallet },
   { id: 'daily', name: 'Нагороди', icon: Gift },
   { id: 'buildings', name: 'Будівлі', icon: HardHat },
 ];
@@ -101,7 +102,7 @@ export function ExpeditionApp() {
       </div>
 
       <nav className="bg-[#161B22] border-t border-white/10 shrink-0">
-        <div className="grid grid-cols-7 h-16">
+        <div className="grid grid-cols-8 h-16">
           {navigation.map((item) => {
             const isActive = screen === item.id;
             const Icon = item.icon;

@@ -21,6 +21,9 @@ import {
   initialMuseumState,
   calculateMuseumIncome,
   getUpgradeCost,
+  checkAndUnlockAchievements,
+  getAchievementReward,
+  EXHIBITION_EVENTS,
 } from './museumData';
 import {
   StoryProgress,
@@ -138,6 +141,7 @@ interface GameState {
   collectMuseumIncome: () => void;
   purchaseMuseumUpgrade: (upgradeId: string) => boolean;
   expandExhibitionSlots: () => boolean;
+  joinEvent: (eventId: string) => boolean;
 
   // buildings
   upgradeBuilding: (buildingId: string) => boolean;
@@ -593,6 +597,71 @@ export const useExpeditionStore = create<GameState>()(
         return true;
       },
 
+      joinEvent: (eventId) => {
+        const s = get();
+        const museumState = s.museumState;
+        
+        // Check if already participating
+        const participated = museumState.eventParticipation || [];
+        if (participated.includes(eventId)) {
+          s.pushToast('Ви вже берете участь у цій події', '#FF2A5F');
+          return false;
+        }
+        
+        // Find event and check reputation requirement
+        const event = EXHIBITION_EVENTS.find(e => e.id === eventId);
+        if (!event) {
+          s.pushToast('Подію не знайдено', '#FF2A5F');
+          return false;
+        }
+        
+        if (museumState.reputation < event.requiredReputation) {
+          s.pushToast(`Потрібно ${event.requiredReputation} репутації`, '#FF2A5F');
+          return false;
+        }
+        
+        // Add event participation
+        set((state) => ({
+          museumState: {
+            ...state.museumState,
+            eventParticipation: [...participated, eventId],
+          },
+        }));
+        
+        // Grant event rewards
+        event.rewards.forEach(reward => {
+          if (reward.type === 'karbovanets') {
+            set((state) => ({
+              karbovanets: state.karbovanets + reward.amount,
+            }));
+          }
+        });
+        
+        s.pushToast(`🎉 Ви приєдналися до події!`, '#FFC72C');
+        
+        // Check for new achievements (first event achievement)
+        const state = get();
+        const newAchievements = checkAndUnlockAchievements(state.museumState, state.artifacts);
+        if (newAchievements.length > 0) {
+          set((st) => ({
+            museumState: {
+              ...st.museumState,
+              achievements: [...st.museumState.achievements, ...newAchievements.map(a => a.achievementId)],
+            },
+          }));
+          
+          newAchievements.forEach((unlocked) => {
+            const reward = getAchievementReward(unlocked.achievementId);
+            if (reward && reward.type === 'karbovanets') {
+              set((st) => ({ karbovanets: st.karbovanets + reward.amount }));
+              s.pushToast(`🏆 Досягнення! +${reward.amount} 💰`, '#FFC72C');
+            }
+          });
+        }
+        
+        return true;
+      },
+
       // Building actions
       upgradeBuilding: (buildingId) => {
         const s = get();
@@ -829,6 +898,7 @@ export const useExpeditionStore = create<GameState>()(
         const prestigeGain = Math.floor(art.prestigeBonus * ARTIFACT_PRESTIGE_MULTIPLIER);
         const reputationGain = Math.round(prestigeGain / 2);
         
+        // Update state first
         set((st) => ({
           artifacts: st.artifacts.map((a) =>
             a.id === artifactId ? { ...a, status: 'museum' } : a,
@@ -837,6 +907,31 @@ export const useExpeditionStore = create<GameState>()(
           reputation: st.reputation + reputationGain,
         }));
         s.pushToast(`«${art.name}» виставлено в музеї (+${prestigeGain} престижу)`, '#9747FF');
+        
+        // Check for new achievements
+        const state = get();
+        const newAchievements = checkAndUnlockAchievements(state.museumState, state.artifacts);
+        if (newAchievements.length > 0) {
+          // Add to unlocked achievements
+          set((st) => ({
+            museumState: {
+              ...st.museumState,
+              achievements: [...st.museumState.achievements, ...newAchievements.map(a => a.achievementId)],
+            },
+          }));
+          
+          // Show toast for each new achievement
+          newAchievements.forEach((unlocked) => {
+            const reward = getAchievementReward(unlocked.achievementId);
+            s.pushToast(`🏆 Досягнення розблоковано!`, '#FFC72C');
+            if (reward) {
+              if (reward.type === 'karbovanets') {
+                set((st) => ({ karbovanets: st.karbovanets + reward.amount }));
+                s.pushToast(`+${reward.amount} 💰`, '#FFC72C');
+              }
+            }
+          });
+        }
       },
 
       toggleNpcWork: (npcId) => {

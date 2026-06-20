@@ -39,6 +39,7 @@ export function MuseumSystem({ isOpen, onClose }: MuseumSystemProps) {
   const collectMuseumIncome = useExpeditionStore((s) => s.collectMuseumIncome);
   const purchaseMuseumUpgrade = useExpeditionStore((s) => s.purchaseMuseumUpgrade);
   const expandExhibitionSlots = useExpeditionStore((s) => s.expandExhibitionSlots);
+  const joinEvent = useExpeditionStore((s) => s.joinEvent);
 
   // Get displayed artifacts
   const museumArtifacts = artifacts.filter((a) => a.status === 'museum');
@@ -192,6 +193,7 @@ export function MuseumSystem({ isOpen, onClose }: MuseumSystemProps) {
         {activeTab === 'events' && (
           <EventsTab
             museumState={museumState}
+            onJoinEvent={joinEvent}
           />
         )}
 
@@ -784,7 +786,7 @@ function AchievementsTab({ museumState, museumArtifacts }: { museumState: Museum
 }
 
 // Events Tab Component
-function EventsTab({ museumState }: { museumState: MuseumState }) {
+function EventsTab({ museumState, onJoinEvent }: { museumState: MuseumState; onJoinEvent: (eventId: string) => boolean }) {
   const { t } = useTranslation();
   const now = Date.now();
   const activeEvents = EXHIBITION_EVENTS.filter(e => 
@@ -864,6 +866,7 @@ function EventsTab({ museumState }: { museumState: MuseumState }) {
               </div>
 
               <button
+                onClick={() => !isActive && onJoinEvent(event.id)}
                 className={`w-full py-2 rounded-lg text-sm font-medium transition-all ${
                   isActive
                     ? 'bg-white/10 text-gray-500 cursor-not-allowed'
