@@ -12,6 +12,7 @@ export function Museum() {
 
   const artifacts = useExpeditionStore((s) => s.artifacts);
   const museumState = useExpeditionStore((s) => s.museumState);
+  const artifactFragments = useExpeditionStore((s) => s.artifactFragments);
 
   const museumArtifacts = artifacts.filter((a) => a.status === 'museum');
   const totalValue = museumArtifacts.reduce((sum, a) => sum + a.value, 0);
@@ -86,6 +87,53 @@ export function Museum() {
               {totalValue.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">{t('museum.total_collection_value')}</p>
+          </div>
+        </Card>
+
+        {/* Artifact Fragments */}
+        <Card className="border-white/10 p-4 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium">🧩 Фрагменти артефактів</span>
+            <button
+              onClick={() => setShowFullMuseum(true)}
+              className="text-xs px-2 py-1 rounded"
+              style={{ backgroundColor: '#9747FF20', color: '#9747FF' }}
+            >
+              Зібрати
+            </button>
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {(['common', 'rare', 'epic', 'legendary'] as const).map((rarity) => {
+              const count = artifactFragments[rarity] || 0;
+              const cost = [20, 50, 100, 250][(['common', 'rare', 'epic', 'legendary'] as const).indexOf(rarity)];
+              const colors: Record<string, string> = {
+                common: '#9CA3AF',
+                rare: '#3B82F6',
+                epic: '#8B5CF6',
+                legendary: '#F59E0B',
+              };
+              const canAssemble = count >= cost;
+              return (
+                <div
+                  key={rarity}
+                  className="text-center p-2 rounded-lg"
+                  style={{
+                    backgroundColor: `${colors[rarity]}15`,
+                    border: `1px solid ${colors[rarity]}40`,
+                  }}
+                >
+                  <div
+                    className="text-lg font-bold"
+                    style={{ color: canAssemble ? colors[rarity] : '#6B7280' }}
+                  >
+                    {count}
+                  </div>
+                  <div className="text-xs" style={{ color: colors[rarity] }}>
+                    {rarity === 'common' ? '⚪' : rarity === 'rare' ? '🔵' : rarity === 'epic' ? '🟣' : '🟡'}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </Card>
 

@@ -577,3 +577,25 @@ export function getEffectiveEarnings(amount: number, karbovanets: number): numbe
   
   return Math.floor(amount * (1 - reduction));
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// ARTIFACT FRAGMENT SYSTEM
+// ═══════════════════════════════════════════════════════════════════════
+
+export type ArtifactRarity = 'common' | 'rare' | 'epic' | 'legendary';
+
+/** Fragment cost to assemble one artifact of given rarity */
+export const ARTIFACT_FRAGMENT_COSTS: Record<ArtifactRarity, number> = {
+  common: 20,
+  rare: 50,
+  epic: 100,
+  legendary: 250,
+};
+
+/** Compensation fragments when duplicate is received */
+export const DUPLICATE_COMPENSATION: Record<ArtifactRarity, number> = {
+  common: 5,
+  rare: 15,
+  epic: 30,
+  legendary: 75,
+};

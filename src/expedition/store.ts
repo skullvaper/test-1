@@ -39,6 +39,9 @@ import {
   ARTIFACT_PRESTIGE_MULTIPLIER,
   getLevelFromXP,
   MAX_HERO_LEVEL,
+  ARTIFACT_FRAGMENT_COSTS,
+  DUPLICATE_COMPENSATION,
+  ArtifactRarity,
 } from './balanceConfig';
 import { academySync } from './expeditionSync';
 
@@ -173,6 +176,7 @@ interface GameState {
   // Artifact fragments
   addArtifactFragment: (rarity: Rarity, amount: number) => void;
   getArtifactFragmentCount: (rarity: Rarity) => number;
+  assembleArtifact: (rarity: ArtifactRarity) => { success: boolean; artifactId?: string; isDuplicate?: boolean; message: string };
 
   // economy helpers
   addKarbovanets: (amount: number) => void;
@@ -582,6 +586,79 @@ export const useExpeditionStore = create<GameState>()(
 
       getArtifactFragmentCount: (rarity) => {
         return get().artifactFragments[rarity] || 0;
+      },
+
+      assembleArtifact: (rarity) => {
+        const cost = ARTIFACT_FRAGMENT_COSTS[rarity];
+        const currentFragments = get().artifactFragments[rarity] || 0;
+
+        // Check if enough fragments
+        if (currentFragments < cost) {
+          return {
+            success: false,
+            message: `Потрібно ${cost} фрагментів ${rarity}. Зараз: ${currentFragments}`,
+          };
+        }
+
+        // Spend fragments
+        set((state) => ({
+          artifactFragments: {
+            ...state.artifactFragments,
+            [rarity]: state.artifactFragments[rarity] - cost,
+          },
+        }));
+
+        // Get existing artifact IDs for this rarity
+        const existingArtifactIds = new Set(get().artifacts.map((a) => a.id));
+
+        // Generate a unique artifact ID
+        const artifactId = `assembled-${rarity}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+        // Create new artifact in damaged state (needs restoration)
+        const newArtifact: Artifact = {
+          id: artifactId,
+          name: `Зібраний ${rarity} артефакт`,
+          era: 'Випадкова епоха',
+          rarity: rarity,
+          status: 'damaged',
+          description: 'Артефакт зібраний з фрагментів.',
+          restoreTime: 30, // 30 minutes
+          value: cost * 50, // 50x fragment cost
+          prestigeBonus: cost / 2,
+        };
+
+        // Check for duplicate (simple check - any artifact of same rarity)
+        const sameRarityCount = get().artifacts.filter((a) => a.rarity === rarity).length;
+        const isDuplicate = sameRarityCount > 0;
+
+        // Add artifact to state
+        set((state) => ({
+          artifacts: [...state.artifacts, newArtifact],
+        }));
+
+        if (isDuplicate) {
+          // Give compensation
+          const compensation = DUPLICATE_COMPENSATION[rarity];
+          set((state) => ({
+            artifactFragments: {
+              ...state.artifactFragments,
+              [rarity]: (state.artifactFragments[rarity] || 0) + compensation,
+            },
+          }));
+          return {
+            success: true,
+            artifactId,
+            isDuplicate: true,
+            message: `Дублікат! Отримано ${compensation} фрагментів компенсації + новий артефакт.`,
+          };
+        }
+
+        return {
+          success: true,
+          artifactId,
+          isDuplicate: false,
+          message: `${rarity} артефакт зібрано! Потрібно відновити.`,
+        };
       },
 
       // Museum actions

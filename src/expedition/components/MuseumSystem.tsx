@@ -5,14 +5,14 @@ import { leaderboardService, LeaderboardType, RankingMetric, LeaderboardEntry } 
 import { motion } from 'motion/react';
 import { 
   Landmark, TrendingUp, Award, Sparkles, Eye, 
-  Plus, Minus, Star, Gift, 
+  Plus, Minus, Star, Gift, Puzzle, 
   X, Settings, Trophy, Calendar, Crown, RefreshCw
 } from 'lucide-react';
 import { Card, Badge, Progress } from '../ui';
 import type { Artifact, Rarity } from '../data';
 import { useTranslation } from '../../i18n';
 
-type TabType = 'exhibitions' | 'collections' | 'upgrades' | 'stats' | 'achievements' | 'events' | 'rankings';
+type TabType = 'exhibitions' | 'collections' | 'upgrades' | 'stats' | 'assemble' | 'achievements' | 'events' | 'rankings';
 
 const rarityConfig: Record<Rarity, { color: string; labelKey: string }> = {
   common: { color: '#8B949E', labelKey: 'artifacts.rarity_common' },
@@ -34,12 +34,15 @@ export function MuseumSystem({ isOpen, onClose }: MuseumSystemProps) {
   const museumState = useExpeditionStore((s) => s.museumState);
   const artifacts = useExpeditionStore((s) => s.artifacts);
   const karbovanets = useExpeditionStore((s) => s.karbovanets);
+  const artifactFragments = useExpeditionStore((s) => s.artifactFragments);
   const placeArtifactInExhibition = useExpeditionStore((s) => s.placeArtifactInExhibition);
   const removeArtifactFromExhibition = useExpeditionStore((s) => s.removeArtifactFromExhibition);
   const collectMuseumIncome = useExpeditionStore((s) => s.collectMuseumIncome);
   const purchaseMuseumUpgrade = useExpeditionStore((s) => s.purchaseMuseumUpgrade);
   const expandExhibitionSlots = useExpeditionStore((s) => s.expandExhibitionSlots);
   const joinEvent = useExpeditionStore((s) => s.joinEvent);
+  const assembleArtifact = useExpeditionStore((s) => s.assembleArtifact);
+  const pushToast = useExpeditionStore((s) => s.pushToast);
 
   // Get displayed artifacts
   const museumArtifacts = artifacts.filter((a) => a.status === 'museum');
@@ -126,12 +129,11 @@ export function MuseumSystem({ isOpen, onClose }: MuseumSystemProps) {
         <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
           {[
             { id: 'exhibitions' as TabType, icon: Sparkles, label: t('museum.tab_exhibitions') },
+            { id: 'assemble' as TabType, icon: Puzzle, label: '🧩' },
             { id: 'collections' as TabType, icon: Gift, label: t('museum.tab_collections') },
             { id: 'upgrades' as TabType, icon: Settings, label: t('museum.tab_upgrades') },
             { id: 'stats' as TabType, icon: TrendingUp, label: t('museum.tab_stats') },
             { id: 'achievements' as TabType, icon: Trophy, label: '🏆' },
-            { id: 'events' as TabType, icon: Calendar, label: '📅' },
-            { id: 'rankings' as TabType, icon: Crown, label: '👑' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -173,6 +175,86 @@ export function MuseumSystem({ isOpen, onClose }: MuseumSystemProps) {
             karbovanets={karbovanets}
             purchaseMuseumUpgrade={purchaseMuseumUpgrade}
           />
+        )}
+
+        {activeTab === 'assemble' && (
+          <div className="space-y-4">
+            <div className="text-center mb-4">
+              <h3 className="text-lg font-bold mb-2">🧩 Збірка артефактів</h3>
+              <p className="text-sm text-gray-400">Використайте фрагменти для створення нових артефактів</p>
+            </div>
+
+            {(['common', 'rare', 'epic', 'legendary'] as const).map((rarity) => {
+              const count = artifactFragments[rarity] || 0;
+              const cost = [20, 50, 100, 250][['common', 'rare', 'epic', 'legendary'].indexOf(rarity)];
+              const canAssemble = count >= cost;
+              const colors: Record<string, { bg: string; border: string; text: string; icon: string }> = {
+                common: { bg: '#9CA3AF15', border: '#9CA3AF40', text: '#9CA3AF', icon: '⚪' },
+                rare: { bg: '#3B82F615', border: '#3B82F640', text: '#3B82F6', icon: '🔵' },
+                epic: { bg: '#8B5CF615', border: '#8B5CF640', text: '#8B5CF6', icon: '🟣' },
+                legendary: { bg: '#F59E0B15', border: '#F59E0B40', text: '#F59E0B', icon: '🟡' },
+              };
+              const c = colors[rarity];
+
+              return (
+                <Card
+                  key={rarity}
+                  className="p-4"
+                  style={{ backgroundColor: c.bg, borderColor: c.border }}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{c.icon}</span>
+                      <div>
+                        <div className="font-bold capitalize" style={{ color: c.text }}>
+                          {rarity}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {count} / {cost} фрагментів
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm" style={{ color: c.text }}>
+                        +{Math.floor(cost * 50)} 💰
+                      </div>
+                      <div className="text-xs text-gray-400">цінність</div>
+                    </div>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="w-full h-2 rounded-full bg-black/30 mb-3">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${Math.min(100, (count / cost) * 100)}%`,
+                        backgroundColor: canAssemble ? c.text : '#4B5563',
+                      }}
+                    />
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      const result = assembleArtifact(rarity);
+                      pushToast(result.message, result.success ? (result.isDuplicate ? '#FFC72C' : '#10B981') : '#EF4444');
+                    }}
+                    disabled={!canAssemble}
+                    className={`w-full py-3 rounded-xl font-bold transition-all ${
+                      canAssemble
+                        ? ''
+                        : 'opacity-50 cursor-not-allowed'
+                    }`}
+                    style={{
+                      backgroundColor: canAssemble ? c.text : '#374151',
+                      color: canAssemble ? '#000' : '#9CA3AF',
+                    }}
+                  >
+                    {canAssemble ? `🧩 Зібрати ${rarity} артефакт` : `Потрібно ще ${cost - count} фрагментів`}
+                  </button>
+                </Card>
+              );
+            })}
+          </div>
         )}
 
         {activeTab === 'stats' && (
