@@ -22,6 +22,7 @@ import {
   calculateMuseumIncome,
   getUpgradeCost,
   checkAndUnlockAchievements,
+  checkAndUnlockCollections,
   getAchievementReward,
   EXHIBITION_EVENTS,
 } from './museumData';
@@ -1213,6 +1214,29 @@ export const useExpeditionStore = create<GameState>()(
                 s.pushToast(`+${reward.amount} 💰`, '#FFC72C');
               }
             }
+          });
+        }
+
+        // Check for completed collections
+        const updatedState = get();
+        const museumArtifacts = updatedState.artifacts.filter(a => a.status === 'museum');
+        const newCollections = checkAndUnlockCollections(updatedState.museumState, museumArtifacts);
+        if (newCollections.length > 0) {
+          const newCollectionIds = newCollections.map(c => c.id);
+          set((st) => ({
+            museumState: {
+              ...st.museumState,
+              completedCollections: [...st.museumState.completedCollections, ...newCollectionIds],
+            },
+          }));
+
+          // Grant collection rewards
+          newCollections.forEach((collection) => {
+            s.pushToast(`🎁 Колекція "${collection.nameKey.replace('museum.', '')}" завершена!`, '#9747FF');
+            set((st) => ({
+              reputation: st.reputation + collection.bonus.reputationBonus,
+              karbovanets: st.karbovanets + collection.bonus.karbovanetsBonus,
+            }));
           });
         }
       },

@@ -62,13 +62,13 @@ export function Museum() {
         {/* Collection Progress */}
         <Card className="border-white/10 p-3 mb-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm">{t('museum.collections')}</span>
+            <span className="text-sm">🎁 {t('museum.collections')}</span>
             <span className="text-sm" style={{ fontFamily: "'Exo 2', sans-serif", color: '#FFC72C' }}>
-              {museumState.completedCollections.length} / 5
+              {museumState.completedCollections.length} / {museumState.completedCollections.length + 2}
             </span>
           </div>
-          <div className="flex gap-1">
-            {[1, 2, 3, 4, 5].map((i) => (
+          <div className="flex gap-1 mb-2">
+            {[1, 2, 3, 4, 5, 6, 7].slice(0, Math.max(5, museumState.completedCollections.length + 2)).map((i) => (
               <div
                 key={i}
                 className="flex-1 h-2 rounded"
@@ -78,6 +78,11 @@ export function Museum() {
               />
             ))}
           </div>
+          {museumState.completedCollections.length > 0 && (
+            <div className="text-xs text-muted-foreground">
+              Завершено: {museumState.completedCollections.length} колекцій
+            </div>
+          )}
         </Card>
 
         {/* Museum Value */}

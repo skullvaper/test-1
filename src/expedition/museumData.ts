@@ -597,6 +597,75 @@ export function isCollectionComplete(collection: Collection, progress: number): 
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// COLLECTION COMPLETION CHECKER
+// ═══════════════════════════════════════════════════════════════════════
+
+export interface UnlockedCollection {
+  collectionId: string;
+  unlockedAt: number;
+  rewardClaimed: boolean;
+}
+
+/**
+ * Check all collections and return newly completed ones
+ */
+export function checkAndUnlockCollections(
+  currentState: MuseumState,
+  museumArtifacts: { id: string; name: string; era: string }[]
+): Collection[] {
+  const newlyCompleted: Collection[] = [];
+  const alreadyCompleted = currentState.completedCollections || [];
+
+  for (const collection of museumCollections) {
+    // Skip if already completed
+    if (alreadyCompleted.includes(collection.id)) continue;
+
+    // Calculate progress
+    const progress = calculateCollectionProgress(collection, museumArtifacts);
+
+    // Check if complete
+    if (isCollectionComplete(collection, progress)) {
+      newlyCompleted.push(collection);
+    }
+  }
+
+  return newlyCompleted;
+}
+
+/**
+ * Calculate total collection bonus for an artifact
+ */
+export function getArtifactCollectionBonus(
+  artifact: { era: string; name: string },
+  completedCollections: string[]
+): { reputation: number; visitorPercent: number; incomePercent: number } {
+  let reputation = 0;
+  let visitorPercent = 0;
+  let incomePercent = 0;
+
+  for (const collection of museumCollections) {
+    // Skip if not completed
+    if (!completedCollections.includes(collection.id)) continue;
+
+    // Check if artifact matches this collection
+    if (artifact.era !== collection.era) continue;
+    
+    const artifactLower = artifact.name.toLowerCase();
+    const matches = collection.artifacts.some(keyword => 
+      artifactLower.includes(keyword.toLowerCase())
+    );
+
+    if (matches) {
+      reputation += Math.floor(collection.bonus.reputationBonus / collection.requiredCount);
+      visitorPercent += collection.bonus.visitorBonus / collection.requiredCount;
+      incomePercent += collection.bonus.incomeBonus / collection.requiredCount;
+    }
+  }
+
+  return { reputation, visitorPercent, incomePercent };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // INITIAL STATE
 // ═══════════════════════════════════════════════════════════════════════
 
