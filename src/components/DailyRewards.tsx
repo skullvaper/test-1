@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { X, Flame } from 'lucide-react';
 import { useTranslation } from '../i18n';
-import { formatNumber } from '../lib/utils';
+import { formatNumber, getTodayDateStr, getYesterdayDateStr } from '../lib/utils';
 import { hapticNotification, hapticImpact } from '../lib/telegram';
-import { getTodayDateStr, getYesterdayDateStr } from '../data/tasks';
 
 export interface DailyReward {
   day: number;

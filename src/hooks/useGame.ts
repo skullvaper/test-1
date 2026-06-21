@@ -349,7 +349,7 @@ export function useGame(): UseGameReturn {
     const xpGained = Math.round(effectiveTapPower);
     
     setState(prev => {
-      const newXp = prev.xp + xpGained;
+      let newXp = prev.xp + xpGained;
       let newLevel = prev.level;
       let newXpToNext = prev.xpToNextLevel;
       let newTotalXp = prev.totalXp + xpGained;
